@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AirFree</title>
+<style>
+  :root { --bg:#f3f5fa; --card:#fff; --text:#1c2333; --muted:#6b7488; --accent:#2f6bff; --line:#e3e7f0; --danger:#d64545; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#12151c; --card:#1b2029; --text:#e8ecf5; --muted:#8c96ab; --line:#2a3140; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--text); }
+  .hidden { display:none !important; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:9px; padding:8px 13px; font-size:14px; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); padding:6px 8px; }
+  button.del { background:transparent; color:var(--danger); padding:6px 8px; }
+  input, textarea { width:100%; border:1px solid var(--line); border-radius:9px; padding:9px; font:inherit; background:transparent; color:var(--text); }
+  textarea { min-height:90px; resize:vertical; }
+  #login { max-width:340px; margin:14vh auto 0; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:24px; text-align:center; }
+  #login h1 { margin:0 0 6px; }
+  #login p { color:var(--muted); font-size:14px; }
+  #login input { text-align:center; font-size:22px; letter-spacing:6px; margin:10px 0; }
+  .err { color:var(--danger); font-size:14px; min-height:20px; }
+  header { display:flex; align-items:center; gap:12px; padding:12px 16px; max-width:960px; margin:0 auto; }
+  header h1 { margin:0; font-size:20px; flex:1; }
+  nav { display:flex; gap:6px; flex-wrap:wrap; max-width:960px; margin:0 auto; padding:0 16px; }
+  nav button { background:var(--card); color:var(--text); border:1px solid var(--line); }
+  nav button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  main { max-width:960px; margin:12px auto 40px; padding:0 16px; }
+  .pane { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
+  ul { list-style:none; margin:0; padding:0; }
+  li { display:flex; align-items:center; gap:8px; padding:10px 0; border-top:1px solid var(--line); }
+  li:first-child { border-top:0; }
+  .grow { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .meta { font-size:12px; color:var(--muted); }
+  .empty { color:var(--muted); padding:8px 0; }
+  .crumbs { margin-bottom:10px; font-size:14px; }
+  .crumbs a { color:var(--accent); cursor:pointer; }
+  .row { display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; }
+  .sms-in { background:var(--bg); border-radius:10px; padding:8px 10px; }
+  .sms-out { background:var(--accent); color:#fff; border-radius:10px; padding:8px 10px; }
+  #screenWrap { text-align:center; }
+  #screen { max-width:100%; max-height:70vh; border:1px solid var(--line); border-radius:12px; cursor:crosshair; user-select:none; -webkit-user-drag:none; }
+  dl { display:grid; grid-template-columns:150px 1fr; gap:8px 12px; margin:0; }
+  dt { color:var(--muted); }
+  dd { margin:0; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h1>AirFree</h1>
+  <p>Enter the PIN shown in the AirFree app on your phone.</p>
+  <input id="pin" inputmode="numeric" maxlength="8" placeholder="--------" autocomplete="off">
+  <div class="err" id="loginErr"></div>
+  <button id="loginBtn">Sign in</button>
+</div>
+
+<div id="app" class="hidden">
+  <header><h1>AirFree</h1><button class="ghost" id="logout">Sign out</button></header>
+  <nav id="tabs">
+    <button data-tab="files" class="on">Files</button>
+    <button data-tab="notifs">Notifications</button>
+    <button data-tab="sms">Messages</button>
+    <button data-tab="screen">Screen</button>
+    <button data-tab="clip">Clipboard</button>
+    <button data-tab="device">Device</button>
+  </nav>
+  <main>
+    <div class="pane" id="p-files">
+      <div class="crumbs" id="crumbs"></div>
+      <div class="row">
+        <button id="uploadBtn">Upload files here</button>
+        <input type="file" id="picker" multiple hidden>
+        <span class="meta" id="upStatus"></span>
+      </div>
+      <ul id="fileList"></ul>
+    </div>
+
+    <div class="pane hidden" id="p-notifs"><ul id="notifList"></ul></div>
+
+    <div class="pane hidden" id="p-sms">
+      <div class="row">
+        <input id="smsTo" placeholder="Phone number" style="max-width:220px">
+        <input id="smsBody" placeholder="Message" style="flex:1;min-width:180px">
+        <button id="smsSend">Send SMS</button>
+      </div>
+      <div class="err" id="smsErr"></div>
+      <ul id="smsList"></ul>
+    </div>
+
+    <div class="pane hidden" id="p-screen">
+      <div id="screenWrap">
+        <div class="row" style="justify-content:center">
+          <button data-key="back">Back</button>
+          <button data-key="home">Home</button>
+          <button data-key="recents">Recents</button>
+        </div>
+        <div class="empty" id="screenMsg">Start screen sharing in the AirFree app on your phone.</div>
+        <img id="screen" alt="Phone screen" draggable="false">
+        <div class="meta">Click to tap, drag to swipe. Needs "remote control" enabled on the phone.</div>
+      </div>
+    </div>
+
+    <div class="pane hidden" id="p-clip">
+      <h3>Computer to phone</h3>
+      <textarea id="clipText" placeholder="Type or paste text, then send it to the phone's clipboard"></textarea>
+      <div class="row"><button id="clipSend">Copy to phone clipboard</button><span class="meta" id="clipStatus"></span></div>
+      <h3>Phone to computer</h3>
+      <p class="meta">In the app on the phone, tap "Send phone clipboard to computer".</p>
+      <textarea id="clipFromPhone" readonly></textarea>
+      <div class="row"><button id="clipCopy">Copy</button></div>
+    </div>
+
+    <div class="pane hidden" id="p-device"><dl id="deviceInfo"></dl></div>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : b < 1073741824 ? (b/1048576).toFixed(1) + ' MB' : (b/1073741824).toFixed(2) + ' GB';
+const fmtTime = t => new Date(t).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+
+let token = sessionStorage.getItem('t') || '';
+let tab = 'files';
+let cwd = '';
+let screenLoopId = 0;
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers, { Authorization: 'Bearer ' + token });
+  const r = await fetch(path, opts);
+  if (r.status === 401) { logout(); throw new Error('Signed out'); }
+  return r;
+}
+async function getJson(path) {
+  const r = await api(path);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+async function postJson(path, body) {
+  const r = await api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+/* ---------- login ---------- */
+async function login() {
+  $('loginErr').textContent = '';
+  try {
+    const r = await fetch('api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: $('pin').value.trim() }) });
+    const j = await r.json();
+    if (!r.ok) { $('loginErr').textContent = j.error || 'Could not sign in'; return; }
+    token = j.token; sessionStorage.setItem('t', token);
+    showApp();
+  } catch (e) { $('loginErr').textContent = 'Cannot reach the phone'; }
+}
+function logout() {
+  token = ''; sessionStorage.removeItem('t'); screenLoopId++;
+  $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('pin').value = '';
+}
+function showApp() {
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  showTab(tab);
+}
+$('loginBtn').onclick = login;
+$('pin').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+$('logout').onclick = logout;
+
+/* ---------- tabs ---------- */
+function showTab(name) {
+  tab = name; screenLoopId++;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('hidden', p.id !== 'p-' + name));
+  refreshTab();
+  if (name === 'screen') screenLoop(screenLoopId);
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+function refreshTab() {
+  if (!token) return;
+  if (tab === 'files') loadFiles();
+  else if (tab === 'notifs') loadNotifs();
+  else if (tab === 'sms') loadSms();
+  else if (tab === 'clip') loadClip();
+  else if (tab === 'device') loadDevice();
+}
+setInterval(() => { if (tab !== 'files' && tab !== 'screen') refreshTab(); }, 3000);
+
+/* ---------- files ---------- */
+async function loadFiles() {
+  try {
+    const j = await getJson('api/files?path=' + encodeURIComponent(cwd));
+    const parts = j.path ? j.path.split('/') : [];
+    let html = '<a data-go="">Phone storage</a>';
+    parts.forEach((p, i) => { html += ' / <a data-go="' + esc(parts.slice(0, i + 1).join('/')) + '">' + esc(p) + '</a>'; });
+    $('crumbs').innerHTML = html;
+    $('fileList').innerHTML = j.items.length ? j.items.map(f => {
+      const p = (j.path ? j.path + '/' : '') + f.name;
+      return '<li><div class="grow">' + (f.dir
+        ? '<a style="cursor:pointer;color:var(--accent)" data-go="' + esc(p) + '">📁 ' + esc(f.name) + '</a>'
+        : '📄 ' + esc(f.name) + '<div class="meta">' + fmtSize(f.size) + ' · ' + fmtTime(f.time) + '</div>') + '</div>'
+        + (f.dir ? '' : '<a href="api/download?path=' + encodeURIComponent(p) + '&token=' + token + '"><button class="ghost">Download</button></a>')
+        + '<button class="del" data-del="' + esc(p) + '">Delete</button></li>';
+    }).join('') : '<div class="empty">This folder is empty.</div>';
+  } catch (e) { $('fileList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+}
+$('p-files').addEventListener('click', async e => {
+  const t = e.target;
+  if (t.dataset.go !== undefined) { cwd = t.dataset.go; loadFiles(); }
+  else if (t.dataset.del) {
+    if (confirm('Delete "' + t.dataset.del + '" from the phone? This cannot be undone.')) {
+      try { await api('api/file?path=' + encodeURIComponent(t.dataset.del), { method: 'DELETE' }); } catch (_) {}
+      loadFiles();
+    }
+  }
+});
+$('uploadBtn').onclick = () => $('picker').click();
+$('picker').onchange = async () => {
+  const files = [...$('picker').files];
+  for (let i = 0; i < files.length; i++) {
+    $('upStatus').textContent = 'Uploading ' + (i + 1) + ' of ' + files.length + ': ' + files[i].name;
+    const fd = new FormData(); fd.append('file', files[i]);
+    try { const r = await api('api/upload?path=' + encodeURIComponent(cwd), { method: 'POST', body: fd });
+          if (!r.ok) throw new Error((await r.json()).error); }
+    catch (e) { alert(files[i].name + ': ' + e.message); }
+  }
+  $('upStatus').textContent = 'Done'; $('picker').value = '';
+  setTimeout(() => $('upStatus').textContent = '', 2000);
+  loadFiles();
+};
+
+/* ---------- notifications ---------- */
+async function loadNotifs() {
+  try {
+    const list = await getJson('api/notifications');
+    $('notifList').innerHTML = list.length ? list.map(n =>
+      '<li><div class="grow"><b>' + esc(n.app) + '</b>' + (n.title ? ' · ' + esc(n.title) : '') +
+      '<div>' + esc(n.text) + '</div><div class="meta">' + fmtTime(n.time) + '</div></div></li>').join('')
+      : '<div class="empty">No notifications yet. Make sure notification access is enabled in the app.</div>';
+  } catch (e) { $('notifList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+}
+
+/* ---------- SMS ---------- */
+async function loadSms() {
+  try {
+    const list = await getJson('api/sms');
+    $('smsErr').textContent = '';
+    $('smsList').innerHTML = list.length ? list.map(m =>
+      '<li><div class="grow ' + (m.type === 2 ? 'sms-out' : 'sms-in') + '"><b>' + esc(m.address) + '</b><div>' + esc(m.body) +
+      '</div><div class="meta" style="' + (m.type === 2 ? 'color:#dfe8ff' : '') + '">' + (m.type === 2 ? 'Sent' : 'Received') + ' · ' + fmtTime(m.date) + '</div></div></li>').join('')
+      : '<div class="empty">No messages.</div>';
+  } catch (e) { $('smsList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+}
+$('smsSend').onclick = async () => {
+  $('smsErr').textContent = '';
+  try { await postJson('api/sms/send', { to: $('smsTo').value, body: $('smsBody').value }); $('smsBody').value = ''; loadSms(); }
+  catch (e) { $('smsErr').textContent = e.message; }
+};
+
+/* ---------- screen ---------- */
+function screenLoop(id) {
+  if (id !== screenLoopId || tab !== 'screen') return;
+  const img = $('screen');
+  img.onload = () => { $('screenMsg').classList.add('hidden'); img.classList.remove('hidden'); setTimeout(() => screenLoop(id), 120); };
+  img.onerror = () => { $('screenMsg').classList.remove('hidden'); img.classList.add('hidden'); setTimeout(() => screenLoop(id), 1500); };
+  img.src = 'api/screen.jpg?token=' + token + '&t=' + Date.now();
+}
+let down = null;
+const frac = (e, img) => { const r = img.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; };
+$('screen').addEventListener('mousedown', e => { down = Object.assign(frac(e, e.currentTarget), { px: e.clientX, py: e.clientY }); e.preventDefault(); });
+$('screen').addEventListener('mouseup', async e => {
+  if (!down) return;
+  const up = frac(e, e.currentTarget);
+  const moved = Math.hypot(e.clientX - down.px, e.clientY - down.py) > 10;
+  const d = down; down = null;
+  try {
+    if (moved) await postJson('api/swipe', { x1: d.x, y1: d.y, x2: up.x, y2: up.y });
+    else await postJson('api/tap', { x: up.x, y: up.y });
+  } catch (err) { $('screenMsg').textContent = err.message; $('screenMsg').classList.remove('hidden'); }
+});
+document.querySelectorAll('[data-key]').forEach(b => b.onclick = async () => {
+  try { await postJson('api/key', { key: b.dataset.key }); }
+  catch (err) { $('screenMsg').textContent = err.message; $('screenMsg').classList.remove('hidden'); }
+});
+
+/* ---------- clipboard ---------- */
+async function loadClip() {
+  try { const j = await getJson('api/clipboard'); if (document.activeElement !== $('clipFromPhone')) $('clipFromPhone').value = j.text; } catch (_) {}
+}
+$('clipSend').onclick = async () => {
+  try { await postJson('api/clipboard', { text: $('clipText').value }); $('clipStatus').textContent = 'Copied to phone'; }
+  catch (e) { $('clipStatus').textContent = e.message; }
+  setTimeout(() => $('clipStatus').textContent = '', 2000);
+};
+$('clipCopy').onclick = () => { const t = $('clipFromPhone'); t.select(); document.execCommand('copy'); };
+
+/* ---------- device ---------- */
+async function loadDevice() {
+  try {
+    const d = await getJson('api/info');
+    const used = d.storageTotal - d.storageFree;
+    $('deviceInfo').innerHTML =
+      '<dt>Phone</dt><dd>' + esc(d.model) + '</dd><dt>Android</dt><dd>' + esc(d.android) + '</dd>' +
+      '<dt>Battery</dt><dd>' + d.battery + '%' + (d.charging ? ' (charging)' : '') + '</dd>' +
+      '<dt>Storage</dt><dd>' + fmtSize(used) + ' used of ' + fmtSize(d.storageTotal) + '</dd>' +
+      '<dt>Screen sharing</dt><dd>' + (d.screenSharing ? 'on' : 'off') + '</dd>' +
+      '<dt>Remote control</dt><dd>' + (d.remoteControl ? 'on' : 'off') + '</dd>';
+  } catch (e) { $('deviceInfo').innerHTML = '<dt>Error</dt><dd>' + esc(e.message) + '</dd>'; }
+}
+
+if (token) showApp();
+</script>
+</body>
+</html>
