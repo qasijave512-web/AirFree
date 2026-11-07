@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AirFree</string>
+    <string name="a11y_desc">Lets your computer tap, swipe and press Back, Home and Recents on this phone while you are signed in to the AirFree web dashboard. It does not read your screen content.</string>
+</resources>
